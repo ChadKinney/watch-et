@@ -229,7 +229,7 @@ function wristPose(lm, W, H){
   return { x: wx, y: wy, angle, palmW };
 }
 
-const CUFF_FRAC = 0.45; // draw only the cuff face (bottom of the flat-sleeve PNG): the part visible when worn
+const CUFF_FRAC = 1.0; // top-down worn cuff graphic: use the full image (flap with logo at image top)
 function drawOverlay(pose, W, H){
   if (!sleeveImg.complete || !sleeveImg.naturalWidth) return;
   // smooth to kill jitter
@@ -259,7 +259,7 @@ function drawOverlay(pose, W, H){
   const cy = smooth.y - uy * drawW * 0.05 + userOffset.y;
   ctx.save();
   ctx.translate(cx, cy);
-  // PNG top (tab end) points toward the hand, cuff body toward the elbow
+  // image top (flap with logo) points toward the hand, cuff loop toward the elbow
   ctx.rotate(smooth.angle + Math.PI / 2);
   ctx.drawImage(sleeveImg, 0, srcH - cuffH, srcW, cuffH, -drawW/2, -drawH/2, drawW, drawH);
   ctx.restore();
