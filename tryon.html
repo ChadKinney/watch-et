@@ -229,7 +229,6 @@ function wristPose(lm, W, H){
   return { x: wx, y: wy, angle, palmW };
 }
 
-const CUFF_FRAC = 1.0; // top-down worn cuff graphic: use the full image (flap with logo at image top)
 function drawOverlay(pose, W, H){
   if (!sleeveImg.complete || !sleeveImg.naturalWidth) return;
   // smooth to kill jitter
@@ -248,20 +247,21 @@ function drawOverlay(pose, W, H){
     };
   }
   const userScale = sizeRange.value / 100;
-  // Cuff width ~ the sleeve's flat width ≈ half the wrist circumference ≈ 1.25 × palm width.
-  const drawW = smooth.palmW * 1.25 * userScale;
+  // Real product photo graphic: the sleeve face. Its long axis (image Y)
+  // is the wrap direction, so it runs across the wrist. The short axis
+  // (image X) runs along the arm and is about half the palm width.
   const srcW = sleeveImg.naturalWidth, srcH = sleeveImg.naturalHeight;
-  const cuffH = srcH * CUFF_FRAC;
-  const drawH = drawW * (cuffH / srcW);
-  // center the cuff on the wrist, nudged a touch toward the elbow, plus the user's drag offset
+  const drawW = smooth.palmW * 0.62 * userScale;
+  const drawH = drawW * (srcH / srcW);
+  // center the sleeve face on the wrist, nudged a touch toward the elbow, plus the user's drag offset
   const ux = Math.cos(smooth.angle), uy = Math.sin(smooth.angle);
   const cx = smooth.x - ux * drawW * 0.05 + userOffset.x;
   const cy = smooth.y - uy * drawW * 0.05 + userOffset.y;
   ctx.save();
   ctx.translate(cx, cy);
-  // image top (flap with logo) points toward the hand, cuff loop toward the elbow
-  ctx.rotate(smooth.angle + Math.PI / 2);
-  ctx.drawImage(sleeveImg, 0, srcH - cuffH, srcW, cuffH, -drawW/2, -drawH/2, drawW, drawH);
+  // image Y (long axis) runs across the wrist, image X along the arm
+  ctx.rotate(smooth.angle);
+  ctx.drawImage(sleeveImg, -drawW/2, -drawH/2, drawW, drawH);
   ctx.restore();
 }
 
