@@ -3,3 +3,5 @@
 # Local working files - not for the live site
 hidden_files/
 images/fb-ads/
+# Demo mockups - not for the live site
+demo_out/
