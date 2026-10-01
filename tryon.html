@@ -90,8 +90,25 @@
   </div>
 </footer>
 
-<script type="module">
-import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+<script>
+// The hand tracking library loads on demand from a CDN. If the browser blocks
+// it (Brave Shields and some ad blockers do), the camera and photo still work
+// and the sleeve can be dragged into place by hand.
+let VisionLib = null;
+async function loadVision(){
+  if (VisionLib) return VisionLib;
+  const urls = [
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs",
+    "https://unpkg.com/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs"
+  ];
+  for (const u of urls){
+    try { VisionLib = await import(u); return VisionLib; } catch(e){}
+  }
+  return null;
+}
+function withTimeout(p, ms){
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+}
 
 const COLORS = {
   black:    { name: "Night OP's Black", img: "images/tryon/black.png" },
@@ -125,6 +142,8 @@ let rafId = null;
 let smooth = null;            // smoothed {x,y,angle,scale}
 let photoBitmap = null;
 let photoLandmarks = null;
+let photoPose = null;        // pose used for the photo overlay (tracked or manual)
+let trackingFailed = false;  // true when the hand tracking library could not load
 let userOffset = { x: 0, y: 0 }; // canvas px, user drag adjustment of overlay center
 
 // drag the overlay to fine-tune its position
@@ -172,9 +191,18 @@ sizeRange.addEventListener("change", redrawPhoto);
 function setStatus(t){ statusEl.textContent = t; }
 
 async function ensureLandmarker(runningMode){
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
-  );
+  const lib = await loadVision();
+  if (!lib) throw new Error("vision library blocked");
+  const wasmBases = [
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm",
+    "https://unpkg.com/@mediapipe/tasks-vision@0.10.14/wasm"
+  ];
+  let vision = null, lastErr = null;
+  for (const base of wasmBases){
+    try { vision = await withTimeout(lib.FilesetResolver.forVisionTasks(base), 20000); break; }
+    catch(e){ lastErr = e; }
+  }
+  if (!vision) throw lastErr || new Error("wasm blocked");
   const modelPath = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
   const opts = (delegate) => ({
     baseOptions: { modelAssetPath: modelPath, delegate },
@@ -185,9 +213,9 @@ async function ensureLandmarker(runningMode){
     minTrackingConfidence: 0.4
   });
   try {
-    return await HandLandmarker.createFromOptions(vision, opts("GPU"));
+    return await withTimeout(lib.HandLandmarker.createFromOptions(vision, opts("GPU")), 30000);
   } catch(e) {
-    return await HandLandmarker.createFromOptions(vision, opts("CPU"));
+    return await withTimeout(lib.HandLandmarker.createFromOptions(vision, opts("CPU")), 30000);
   }
 }
 
@@ -303,13 +331,13 @@ async function startCamera(){
   const loop = () => {
     if (mode !== "camera") return;
     drawFrameMirrored((W, H) => ctx.drawImage(video, 0, 0, W, H));
+    const W = canvas.width, H = canvas.height;
     if (landmarker && video.currentTime !== lastVideoTime){
       lastVideoTime = video.currentTime;
       const res = landmarker.detectForVideo(video, performance.now());
       const lm = res.landmarks && res.landmarks[0];
       if (lm) {
         // un-mirror x for pose math when using front camera
-        const W = canvas.width, H = canvas.height;
         const adj = lm.map(p => ({ x: facingMode === "user" ? 1 - p.x : p.x, y: p.y }));
         drawOverlay(wristPose(adj, W, H), W, H);
         setStatus(COLORS[currentColor].name + ". Looking good. Tap a color to compare.");
@@ -317,6 +345,9 @@ async function startCamera(){
         smooth = null;
         setStatus("Show your wrist to the camera, palm facing it.");
       }
+    } else if (!landmarker && trackingFailed){
+      // manual mode: tracking blocked, sleeve follows the user's drag
+      drawOverlay({ x: W / 2, y: H / 2, angle: 0, palmW: W * 0.3 }, W, H);
     }
     rafId = requestAnimationFrame(loop);
   };
@@ -325,8 +356,9 @@ async function startCamera(){
   try {
     if (!landmarker) landmarker = await ensureLandmarker("VIDEO");
   } catch(err){
+    trackingFailed = true;
     if (mode === "camera")
-      setStatus("Camera is on but hand tracking could not load. The photo option below still works.");
+      setStatus("Camera is on. Auto tracking is blocked by your browser, but you can drag the sleeve into place by hand.");
   }
 }
 
@@ -345,29 +377,45 @@ photoInput.addEventListener("change", async () => {
   const file = photoInput.files && photoInput.files[0];
   if (!file) return;
   stopAll();
+  const bmp = await createImageBitmap(file).catch(() => null);
+  if (!bmp){
+    setStatus("Couldn't read that photo. Try another one.");
+    photoInput.value = "";
+    return;
+  }
+  photoBitmap = bmp;
+  const scale = Math.min(1, 1280 / bmp.width);
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  mode = "photo";
+  userOffset = { x: 0, y: 0 };
+  smooth = null;
+  snapBtn.style.display = "";
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  const manualPose = () => {
+    photoLandmarks = null;
+    photoPose = { x: canvas.width / 2, y: canvas.height / 2, angle: 0, palmW: canvas.width * 0.3 };
+    smooth = null;
+    drawOverlay(photoPose, canvas.width, canvas.height);
+  };
   setStatus("Loading hand tracking…");
   try {
-    if (!landmarkerImg) landmarkerImg = await ensureLandmarker("IMAGE");
-    const bmp = await createImageBitmap(file);
-    photoBitmap = bmp;
-    const scale = Math.min(1, 1280 / bmp.width);
-    canvas.width = Math.round(bmp.width * scale);
-    canvas.height = Math.round(bmp.height * scale);
-    mode = "photo";
-    userOffset = { x: 0, y: 0 };
-    snapBtn.style.display = "";
-    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    if (!landmarkerImg) landmarkerImg = await withTimeout(ensureLandmarker("IMAGE"), 45000);
     const res = landmarkerImg.detect(bmp);
     const lm = res.landmarks && res.landmarks[0];
-    photoLandmarks = lm || null;
     if (lm) {
-      drawOverlay(wristPose(lm, canvas.width, canvas.height), canvas.width, canvas.height);
+      photoLandmarks = lm;
+      photoPose = wristPose(lm, canvas.width, canvas.height);
+      smooth = null;
+      drawOverlay(photoPose, canvas.width, canvas.height);
       setStatus(COLORS[currentColor].name + ". Drag the sleeve into place, or use the size slider.");
     } else {
-      setStatus("No hand found in that photo. Try one with your wrist clearly visible.");
+      manualPose();
+      setStatus("No hand found in that photo. Drag the sleeve into place by hand.");
     }
   } catch(err){
-    setStatus("Couldn't read that photo. Try another one.");
+    manualPose();
+    setStatus("Auto tracking is blocked by your browser. Drag the sleeve into place by hand.");
   }
   photoInput.value = "";
 });
@@ -375,10 +423,10 @@ photoInput.addEventListener("change", async () => {
 // re-draw photo overlay when color or size changes
 sizeRange.addEventListener("input", redrawPhoto);
 function redrawPhoto(){
-  if (mode !== "photo" || !photoBitmap || !photoLandmarks) return;
+  if (mode !== "photo" || !photoBitmap || !photoPose) return;
   ctx.drawImage(photoBitmap, 0, 0, canvas.width, canvas.height);
   smooth = null;
-  drawOverlay(wristPose(photoLandmarks, canvas.width, canvas.height), canvas.width, canvas.height);
+  drawOverlay(photoPose, canvas.width, canvas.height);
 }
 
 // ---------- snapshot ----------
@@ -398,10 +446,16 @@ function stopAll(){
   if (rafId) cancelAnimationFrame(rafId);
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = null; smooth = null; lastVideoTime = -1;
-  photoBitmap = null; photoLandmarks = null;
+  photoBitmap = null; photoLandmarks = null; photoPose = null;
+  trackingFailed = false;
   startBtn.style.display = ""; startBtn.disabled = false;
   switchBtn.style.display = "none"; snapBtn.style.display = "none";
 }
+
+// warm up the tracking library in the background so the camera starts faster
+loadVision().then(() => {
+  ensureLandmarker("VIDEO").then(m => { landmarker = m; }).catch(() => {});
+}).catch(() => {});
 </script>
 </body>
 </html>
