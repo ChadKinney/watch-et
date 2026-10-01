@@ -139,9 +139,13 @@ document.getElementById("colorRow").addEventListener("click", (e) => {
   const btn = e.target.closest(".color-pill");
   if (!btn) return;
   setColor(btn.dataset.color);
+  if (mode === "photo" && photoLandmarks)
+    setStatus(COLORS[currentColor].name + " — drag the size slider to fine-tune the fit.");
+  else if (mode === "camera")
+    setStatus(COLORS[currentColor].name + " — looking good. Tap a color to compare.");
 });
 
-sizeRange.addEventListener("input", () => { /* used live in draw */ });
+sizeRange.addEventListener("change", redrawPhoto);
 
 function setStatus(t){ statusEl.textContent = t; }
 
@@ -165,16 +169,17 @@ async function ensureLandmarker(runningMode){
   }
 }
 
-// wrist = landmark 0, middle_mcp = landmark 9
+// wrist = landmark 0, middle_mcp = landmark 9; palm width from landmark 5 -> 17
 function wristPose(lm, W, H){
-  const w = lm[0], m = lm[9];
+  const w = lm[0], m = lm[9], i = lm[5], p = lm[17];
   const wx = w.x * W, wy = w.y * H;
   const mx = m.x * W, my = m.y * H;
   const angle = Math.atan2(my - wy, mx - wx);          // wrist -> hand direction
-  const handLen = Math.hypot(mx - wx, my - wy) || 1;
-  return { x: wx, y: wy, angle, handLen };
+  const palmW = Math.hypot(i.x*W - p.x*W, i.y*H - p.y*H) || 1;
+  return { x: wx, y: wy, angle, palmW };
 }
 
+const CUFF_FRAC = 0.45; // draw only the cuff face (bottom of the flat-sleeve PNG): the part visible when worn
 function drawOverlay(pose, W, H){
   if (!sleeveImg.complete || !sleeveImg.naturalWidth) return;
   // smooth to kill jitter
@@ -189,20 +194,23 @@ function drawOverlay(pose, W, H){
       x: smooth.x + (pose.x - smooth.x) * k,
       y: smooth.y + (pose.y - smooth.y) * k,
       angle: smooth.angle + da * k,
-      handLen: smooth.handLen + (pose.handLen - smooth.handLen) * k
+      palmW: smooth.palmW + (pose.palmW - smooth.palmW) * k
     };
   }
   const userScale = sizeRange.value / 100;
-  // Sleeve's short dimension ~ wrist width. Wrist width ≈ 0.42 × wrist→middle_mcp.
-  const targetShort = smooth.handLen * 0.46 * userScale;
-  const aspect = sleeveImg.naturalWidth / sleeveImg.naturalHeight;
-  const drawW = targetShort * aspect;
-  const drawH = targetShort;
+  // Cuff width ~ the sleeve's flat width ≈ half the wrist circumference ≈ 1.25 × palm width.
+  const drawW = smooth.palmW * 1.25 * userScale;
+  const srcW = sleeveImg.naturalWidth, srcH = sleeveImg.naturalHeight;
+  const cuffH = srcH * CUFF_FRAC;
+  const drawH = drawW * (cuffH / srcW);
+  // center the cuff on the wrist, nudged a touch toward the elbow
+  const ux = Math.cos(smooth.angle), uy = Math.sin(smooth.angle);
+  const cx = smooth.x - ux * drawW * 0.05, cy = smooth.y - uy * drawW * 0.05;
   ctx.save();
-  ctx.translate(smooth.x, smooth.y);
-  // Sleeve long axis wraps around the wrist => perpendicular to wrist->hand direction
+  ctx.translate(cx, cy);
+  // PNG top (tab end) points toward the hand, cuff body toward the elbow
   ctx.rotate(smooth.angle + Math.PI / 2);
-  ctx.drawImage(sleeveImg, -drawW/2, -drawH/2, drawW, drawH);
+  ctx.drawImage(sleeveImg, 0, srcH - cuffH, srcW, cuffH, -drawW/2, -drawH/2, drawW, drawH);
   ctx.restore();
 }
 
