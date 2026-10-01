@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Try It On Your Wrist | WATCH-ET™</title>
-<meta name="description" content="See the WATCH-ET™ on your own wrist with your phone camera. Pick a color and hold your wrist up.">
+<title>Try It On Your Wrist | WATCHET™</title>
+<meta name="description" content="See the WATCHET™ on your own wrist with your phone camera. Pick a color and hold your wrist up.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -31,7 +31,7 @@
 
 <header class="site-header">
   <div class="header-inner">
-    <a class="brand" href="index.html">WATCH-ET<span class="tm">™</span></a>
+    <a class="brand" href="index.html">WATCHET<span class="tm">™</span></a>
     <nav class="main-nav">
       <a href="index.html#products">Colors</a>
       <a href="index.html#order" class="btn btn-sm">Order Now</a>
@@ -42,7 +42,7 @@
 <main>
   <section class="section">
     <div class="tryon-wrap">
-      <p class="kicker" style="text-align:center;">Virtual Try-On</p>
+      <p class="kicker" style="text-align:center;">Virtual Try On</p>
       <h2 style="text-align:center;">See it on <em>your</em> wrist</h2>
       <p class="section-sub" style="text-align:center;">Pick a color, allow camera access, and hold your wrist up to the camera. Move the size slider until the fit looks right.</p>
 
@@ -72,10 +72,10 @@
         <input type="file" id="photoInput" accept="image/*">
       </div>
 
-      <p class="tryon-note">Tip: hold your wrist steady about a foot from the camera, palm facing the camera.<br>Drag the sleeve to reposition it · move the size slider until the fit looks right.<br>No photo ever leaves your phone — everything runs right in your browser.</p>
+      <p class="tryon-note">Tip: hold your wrist steady about a foot from the camera, palm facing the camera.<br>Drag the sleeve to reposition it · move the size slider until the fit looks right.<br>No photo ever leaves your phone. Everything runs right in your browser.</p>
 
       <div style="text-align:center;margin-top:26px;">
-        <a href="index.html#order" class="btn btn-primary">Like it? Order Yours — from $23</a>
+        <a href="index.html#order" class="btn btn-primary">Like it? Order Yours from $23</a>
       </div>
     </div>
   </section>
@@ -162,9 +162,9 @@ document.getElementById("colorRow").addEventListener("click", (e) => {
   if (!btn) return;
   setColor(btn.dataset.color);
   if (mode === "photo" && photoLandmarks)
-    setStatus(COLORS[currentColor].name + " — drag the sleeve into place, or use the size slider.");
+    setStatus(COLORS[currentColor].name + ". Drag the sleeve into place, or use the size slider.");
   else if (mode === "camera")
-    setStatus(COLORS[currentColor].name + " — looking good. Tap a color to compare.");
+    setStatus(COLORS[currentColor].name + ". Looking good. Tap a color to compare.");
 });
 
 sizeRange.addEventListener("change", redrawPhoto);
@@ -286,7 +286,7 @@ async function startCamera(){
         const W = canvas.width, H = canvas.height;
         const adj = lm.map(p => ({ x: facingMode === "user" ? 1 - p.x : p.x, y: p.y }));
         drawOverlay(wristPose(adj, W, H), W, H);
-        setStatus(COLORS[currentColor].name + " — looking good. Tap a color to compare.");
+        setStatus(COLORS[currentColor].name + ". Looking good. Tap a color to compare.");
       } else {
         smooth = null;
         setStatus("Show your wrist to the camera, palm facing it.");
@@ -329,9 +329,9 @@ photoInput.addEventListener("change", async () => {
     photoLandmarks = lm || null;
     if (lm) {
       drawOverlay(wristPose(lm, canvas.width, canvas.height), canvas.width, canvas.height);
-      setStatus(COLORS[currentColor].name + " — drag the sleeve into place, or use the size slider.");
+      setStatus(COLORS[currentColor].name + ". Drag the sleeve into place, or use the size slider.");
     } else {
-      setStatus("No hand found in that photo — try one with your wrist clearly visible.");
+      setStatus("No hand found in that photo. Try one with your wrist clearly visible.");
     }
   } catch(err){
     setStatus("Couldn't read that photo. Try another one.");
