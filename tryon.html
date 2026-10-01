@@ -72,7 +72,7 @@
         <input type="file" id="photoInput" accept="image/*">
       </div>
 
-      <p class="tryon-note">Tip: hold your wrist steady about a foot from the camera, palm facing the camera.<br>No photo ever leaves your phone — everything runs right in your browser.</p>
+      <p class="tryon-note">Tip: hold your wrist steady about a foot from the camera, palm facing the camera.<br>Drag the sleeve to reposition it · move the size slider until the fit looks right.<br>No photo ever leaves your phone — everything runs right in your browser.</p>
 
       <div style="text-align:center;margin-top:26px;">
         <a href="index.html#order" class="btn btn-primary">Like it? Order Yours — from $23</a>
@@ -125,6 +125,28 @@ let rafId = null;
 let smooth = null;            // smoothed {x,y,angle,scale}
 let photoBitmap = null;
 let photoLandmarks = null;
+let userOffset = { x: 0, y: 0 }; // canvas px, user drag adjustment of overlay center
+
+// drag the overlay to fine-tune its position
+let dragging = false, dragStart = null;
+canvas.style.touchAction = "none";
+canvas.addEventListener("pointerdown", (e) => {
+  if (mode !== "photo" && mode !== "camera") return;
+  dragging = true;
+  dragStart = { x: e.clientX, y: e.clientY, ox: userOffset.x, oy: userOffset.y };
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (!dragging) return;
+  const r = canvas.getBoundingClientRect();
+  const sx = canvas.width / r.width, sy = canvas.height / r.height;
+  userOffset.x = dragStart.ox + (e.clientX - dragStart.x) * sx;
+  userOffset.y = dragStart.oy + (e.clientY - dragStart.y) * sy;
+  if (mode === "photo") redrawPhoto();
+});
+const endDrag = () => { dragging = false; };
+canvas.addEventListener("pointerup", endDrag);
+canvas.addEventListener("pointercancel", endDrag);
 
 // --- color picker ---
 function setColor(color){
@@ -140,7 +162,7 @@ document.getElementById("colorRow").addEventListener("click", (e) => {
   if (!btn) return;
   setColor(btn.dataset.color);
   if (mode === "photo" && photoLandmarks)
-    setStatus(COLORS[currentColor].name + " — drag the size slider to fine-tune the fit.");
+    setStatus(COLORS[currentColor].name + " — drag the sleeve into place, or use the size slider.");
   else if (mode === "camera")
     setStatus(COLORS[currentColor].name + " — looking good. Tap a color to compare.");
 });
@@ -203,9 +225,10 @@ function drawOverlay(pose, W, H){
   const srcW = sleeveImg.naturalWidth, srcH = sleeveImg.naturalHeight;
   const cuffH = srcH * CUFF_FRAC;
   const drawH = drawW * (cuffH / srcW);
-  // center the cuff on the wrist, nudged a touch toward the elbow
+  // center the cuff on the wrist, nudged a touch toward the elbow, plus the user's drag offset
   const ux = Math.cos(smooth.angle), uy = Math.sin(smooth.angle);
-  const cx = smooth.x - ux * drawW * 0.05, cy = smooth.y - uy * drawW * 0.05;
+  const cx = smooth.x - ux * drawW * 0.05 + userOffset.x;
+  const cy = smooth.y - uy * drawW * 0.05 + userOffset.y;
   ctx.save();
   ctx.translate(cx, cy);
   // PNG top (tab end) points toward the hand, cuff body toward the elbow
@@ -245,6 +268,7 @@ async function startCamera(){
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   mode = "camera";
+  userOffset = { x: 0, y: 0 };
   switchBtn.style.display = "";
   snapBtn.style.display = "";
   startBtn.style.display = "none";
@@ -297,6 +321,7 @@ photoInput.addEventListener("change", async () => {
     canvas.width = Math.round(bmp.width * scale);
     canvas.height = Math.round(bmp.height * scale);
     mode = "photo";
+    userOffset = { x: 0, y: 0 };
     snapBtn.style.display = "";
     ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
     const res = landmarkerImg.detect(bmp);
@@ -304,7 +329,7 @@ photoInput.addEventListener("change", async () => {
     photoLandmarks = lm || null;
     if (lm) {
       drawOverlay(wristPose(lm, canvas.width, canvas.height), canvas.width, canvas.height);
-      setStatus(COLORS[currentColor].name + " — drag the size slider to fine-tune the fit.");
+      setStatus(COLORS[currentColor].name + " — drag the sleeve into place, or use the size slider.");
     } else {
       setStatus("No hand found in that photo — try one with your wrist clearly visible.");
     }
