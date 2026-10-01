@@ -58,6 +58,10 @@
         <button class="btn btn-primary" id="startBtn">Start Camera 📷</button>
         <button class="btn btn-ghost" id="switchBtn" style="display:none;">Switch Camera 🔄</button>
         <button class="btn btn-ghost" id="photoBtn">Use a Photo Instead 🖼️</button>
+        <div class="size-row">
+          <label for="sizeRange">Size</label>
+          <input type="range" id="sizeRange" min="50" max="150" value="100" aria-label="Adjust overlay size">
+        </div>
         <button class="btn btn-ghost" id="snapBtn" style="display:none;">Save Photo ⬇️</button>
         <input type="file" id="photoInput" accept="image/*">
       </div>
@@ -65,11 +69,6 @@
       <div class="tryon-stage" id="stage">
         <canvas id="view"></canvas>
         <div class="tryon-status" id="status">Tap Start Camera above to begin.</div>
-      </div>
-
-      <div class="size-row">
-        <label for="sizeRange">Size</label>
-        <input type="range" id="sizeRange" min="50" max="150" value="100" aria-label="Adjust overlay size">
       </div>
 
       <p class="tryon-note">Tip: hold your wrist steady about a foot from the camera, top of your wrist facing the camera.<br>Drag the sleeve to reposition it · move the size slider until the fit looks right.<br>No photo ever leaves your phone. Everything runs right in your browser.</p>
