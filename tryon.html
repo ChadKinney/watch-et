@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Try It On Your Wrist | WATCH-ET™</title>
+<meta name="description" content="See the WATCH-ET™ on your own wrist with your phone camera. Pick a color and hold your wrist up.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="images/keylime-open.jpg">
+<style>
+  .tryon-wrap{max-width:720px;margin:0 auto;padding:20px 16px 60px;}
+  .tryon-stage{position:relative;border-radius:18px;overflow:hidden;background:#0b1520;aspect-ratio:3/4;box-shadow:0 10px 40px rgba(2,8,20,.35);}
+  .tryon-stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  .tryon-status{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(5,10,18,.72);color:#fff;border-radius:12px;padding:10px 14px;font-size:.92rem;text-align:center;backdrop-filter:blur(4px);}
+  .color-row{display:flex;gap:10px;justify-content:center;margin:18px 0 6px;flex-wrap:wrap;}
+  .color-pill{border:2px solid #e2e8f0;background:#fff;border-radius:999px;padding:8px 14px;font-weight:600;font-size:.9rem;cursor:pointer;display:flex;align-items:center;gap:8px;}
+  .color-pill .dot{width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.2);display:inline-block;}
+  .color-pill.active{border-color:#0ea5e9;box-shadow:0 0 0 3px rgba(14,165,233,.18);}
+  .tryon-controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:14px 0;}
+  .tryon-controls .btn{cursor:pointer;}
+  .size-row{display:flex;align-items:center;gap:12px;justify-content:center;margin:10px 0;color:#475569;font-size:.9rem;}
+  .size-row input[type=range]{width:min(60vw,260px);accent-color:#0ea5e9;}
+  .tryon-note{text-align:center;color:#64748b;font-size:.88rem;margin-top:14px;}
+  #photoInput{display:none;}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="index.html">WATCH-ET<span class="tm">™</span></a>
+    <nav class="main-nav">
+      <a href="index.html#products">Colors</a>
+      <a href="index.html#order" class="btn btn-sm">Order Now</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="section">
+    <div class="tryon-wrap">
+      <p class="kicker" style="text-align:center;">Virtual Try-On</p>
+      <h2 style="text-align:center;">See it on <em>your</em> wrist</h2>
+      <p class="section-sub" style="text-align:center;">Pick a color, allow camera access, and hold your wrist up to the camera. Move the size slider until the fit looks right.</p>
+
+      <div class="color-row" id="colorRow">
+        <button class="color-pill active" data-color="black"><span class="dot" style="background:#151515;"></span>Night OP's Black</button>
+        <button class="color-pill" data-color="camo"><span class="dot" style="background:linear-gradient(135deg,#4a5d23 40%,#2b2b2b 60%,#8a7a4a 80%);"></span>Camo</button>
+        <button class="color-pill" data-color="keylime"><span class="dot" style="background:#a8e10c;"></span>Key Lime</button>
+        <button class="color-pill" data-color="orange"><span class="dot" style="background:#ff5a1f;"></span>Sunburst Orange</button>
+        <button class="color-pill" data-color="nautical"><span class="dot" style="background:#1f4fa3;"></span>Nautical Blue</button>
+      </div>
+
+      <div class="tryon-stage" id="stage">
+        <canvas id="view"></canvas>
+        <div class="tryon-status" id="status">Tap “Start Camera” below to begin.</div>
+      </div>
+
+      <div class="size-row">
+        <label for="sizeRange">Size</label>
+        <input type="range" id="sizeRange" min="50" max="150" value="100" aria-label="Adjust overlay size">
+      </div>
+
+      <div class="tryon-controls">
+        <button class="btn btn-primary" id="startBtn">Start Camera 📷</button>
+        <button class="btn btn-ghost" id="switchBtn" style="display:none;">Switch Camera 🔄</button>
+        <button class="btn btn-ghost" id="photoBtn">Use a Photo Instead 🖼️</button>
+        <button class="btn btn-ghost" id="snapBtn" style="display:none;">Save Photo ⬇️</button>
+        <input type="file" id="photoInput" accept="image/*">
+      </div>
+
+      <p class="tryon-note">Tip: hold your wrist steady about a foot from the camera, palm facing the camera.<br>No photo ever leaves your phone — everything runs right in your browser.</p>
+
+      <div style="text-align:center;margin-top:26px;">
+        <a href="index.html#order" class="btn btn-primary">Like it? Order Yours — from $23</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-bottom">
+      <span>© 2026 Adventurers Neoprene Watch Protection. All rights reserved.</span>
+      <span>Veteran Owned &amp; Operated ★ USA</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const COLORS = {
+  black:    { name: "Night OP's Black", img: "images/tryon/black.png" },
+  camo:     { name: "Camo",             img: "images/tryon/camo.png" },
+  keylime:  { name: "Key Lime",         img: "images/tryon/keylime.png" },
+  orange:   { name: "Sunburst Orange",  img: "images/tryon/orange.png" },
+  nautical: { name: "Nautical Blue",    img: "images/tryon/nautical.png" }
+};
+
+const canvas = document.getElementById("view");
+const ctx = canvas.getContext("2d");
+const statusEl = document.getElementById("status");
+const startBtn = document.getElementById("startBtn");
+const switchBtn = document.getElementById("switchBtn");
+const photoBtn = document.getElementById("photoBtn");
+const snapBtn = document.getElementById("snapBtn");
+const photoInput = document.getElementById("photoInput");
+const sizeRange = document.getElementById("sizeRange");
+
+let currentColor = "black";
+let sleeveImg = new Image();
+sleeveImg.src = COLORS.black.img;
+
+let landmarker = null;        // VIDEO mode
+let landmarkerImg = null;     // IMAGE mode (photo fallback)
+let stream = null;
+let facingMode = "user";
+let mode = "idle";            // idle | camera | photo
+let lastVideoTime = -1;
+let rafId = null;
+let smooth = null;            // smoothed {x,y,angle,scale}
+let photoBitmap = null;
+let photoLandmarks = null;
+
+// --- color picker ---
+function setColor(color){
+  currentColor = color;
+  document.querySelectorAll(".color-pill").forEach(b =>
+    b.classList.toggle("active", b.dataset.color === color));
+  sleeveImg = new Image();
+  sleeveImg.onload = () => redrawPhoto();
+  sleeveImg.src = COLORS[color].img;
+}
+document.getElementById("colorRow").addEventListener("click", (e) => {
+  const btn = e.target.closest(".color-pill");
+  if (!btn) return;
+  setColor(btn.dataset.color);
+});
+
+sizeRange.addEventListener("input", () => { /* used live in draw */ });
+
+function setStatus(t){ statusEl.textContent = t; }
+
+async function ensureLandmarker(runningMode){
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  const modelPath = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+  const opts = (delegate) => ({
+    baseOptions: { modelAssetPath: modelPath, delegate },
+    runningMode,
+    numHands: 1,
+    minHandDetectionConfidence: 0.4,
+    minHandPresenceConfidence: 0.4,
+    minTrackingConfidence: 0.4
+  });
+  try {
+    return await HandLandmarker.createFromOptions(vision, opts("GPU"));
+  } catch(e) {
+    return await HandLandmarker.createFromOptions(vision, opts("CPU"));
+  }
+}
+
+// wrist = landmark 0, middle_mcp = landmark 9
+function wristPose(lm, W, H){
+  const w = lm[0], m = lm[9];
+  const wx = w.x * W, wy = w.y * H;
+  const mx = m.x * W, my = m.y * H;
+  const angle = Math.atan2(my - wy, mx - wx);          // wrist -> hand direction
+  const handLen = Math.hypot(mx - wx, my - wy) || 1;
+  return { x: wx, y: wy, angle, handLen };
+}
+
+function drawOverlay(pose, W, H){
+  if (!sleeveImg.complete || !sleeveImg.naturalWidth) return;
+  // smooth to kill jitter
+  const k = 0.45;
+  if (!smooth) smooth = { ...pose };
+  else {
+    // angle smoothing with wrap-around care
+    let da = pose.angle - smooth.angle;
+    while (da > Math.PI) da -= 2*Math.PI;
+    while (da < -Math.PI) da += 2*Math.PI;
+    smooth = {
+      x: smooth.x + (pose.x - smooth.x) * k,
+      y: smooth.y + (pose.y - smooth.y) * k,
+      angle: smooth.angle + da * k,
+      handLen: smooth.handLen + (pose.handLen - smooth.handLen) * k
+    };
+  }
+  const userScale = sizeRange.value / 100;
+  // Sleeve's short dimension ~ wrist width. Wrist width ≈ 0.42 × wrist→middle_mcp.
+  const targetShort = smooth.handLen * 0.46 * userScale;
+  const aspect = sleeveImg.naturalWidth / sleeveImg.naturalHeight;
+  const drawW = targetShort * aspect;
+  const drawH = targetShort;
+  ctx.save();
+  ctx.translate(smooth.x, smooth.y);
+  // Sleeve long axis wraps around the wrist => perpendicular to wrist->hand direction
+  ctx.rotate(smooth.angle + Math.PI / 2);
+  ctx.drawImage(sleeveImg, -drawW/2, -drawH/2, drawW, drawH);
+  ctx.restore();
+}
+
+function drawFrameMirrored(drawVideo){
+  const W = canvas.width, H = canvas.height;
+  ctx.save();
+  if (facingMode === "user") { ctx.translate(W, 0); ctx.scale(-1, 1); }
+  drawVideo(W, H);
+  ctx.restore();
+}
+
+// ---------- camera mode ----------
+async function startCamera(){
+  stopAll();
+  setStatus("Loading hand tracking… (first run downloads a small AI model)");
+  startBtn.disabled = true;
+  try {
+    if (!landmarker) landmarker = await ensureLandmarker("VIDEO");
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
+      audio: false
+    });
+  } catch(err){
+    startBtn.disabled = false;
+    setStatus("Camera unavailable. Try “Use a Photo Instead” below.");
+    return;
+  }
+  const video = document.createElement("video");
+  video.playsInline = true; video.muted = true;
+  video.srcObject = stream;
+  await video.play();
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  mode = "camera";
+  switchBtn.style.display = "";
+  snapBtn.style.display = "";
+  startBtn.style.display = "none";
+  setStatus("Hold your wrist up to the camera, palm facing it.");
+
+  const loop = () => {
+    if (mode !== "camera") return;
+    drawFrameMirrored((W, H) => ctx.drawImage(video, 0, 0, W, H));
+    if (video.currentTime !== lastVideoTime){
+      lastVideoTime = video.currentTime;
+      const res = landmarker.detectForVideo(video, performance.now());
+      const lm = res.landmarks && res.landmarks[0];
+      if (lm) {
+        // un-mirror x for pose math when using front camera
+        const W = canvas.width, H = canvas.height;
+        const adj = lm.map(p => ({ x: facingMode === "user" ? 1 - p.x : p.x, y: p.y }));
+        drawOverlay(wristPose(adj, W, H), W, H);
+        setStatus(COLORS[currentColor].name + " — looking good. Tap a color to compare.");
+      } else {
+        smooth = null;
+        setStatus("Show your wrist to the camera, palm facing it.");
+      }
+    }
+    rafId = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+startBtn.addEventListener("click", startCamera);
+
+switchBtn.addEventListener("click", async () => {
+  facingMode = facingMode === "user" ? "environment" : "user";
+  smooth = null;
+  await startCamera();
+});
+
+// ---------- photo fallback ----------
+photoBtn.addEventListener("click", () => photoInput.click());
+
+photoInput.addEventListener("change", async () => {
+  const file = photoInput.files && photoInput.files[0];
+  if (!file) return;
+  stopAll();
+  setStatus("Loading hand tracking…");
+  try {
+    if (!landmarkerImg) landmarkerImg = await ensureLandmarker("IMAGE");
+    const bmp = await createImageBitmap(file);
+    photoBitmap = bmp;
+    const scale = Math.min(1, 1280 / bmp.width);
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    mode = "photo";
+    snapBtn.style.display = "";
+    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const res = landmarkerImg.detect(bmp);
+    const lm = res.landmarks && res.landmarks[0];
+    photoLandmarks = lm || null;
+    if (lm) {
+      drawOverlay(wristPose(lm, canvas.width, canvas.height), canvas.width, canvas.height);
+      setStatus(COLORS[currentColor].name + " — drag the size slider to fine-tune the fit.");
+    } else {
+      setStatus("No hand found in that photo — try one with your wrist clearly visible.");
+    }
+  } catch(err){
+    setStatus("Couldn't read that photo. Try another one.");
+  }
+  photoInput.value = "";
+});
+
+// re-draw photo overlay when color or size changes
+sizeRange.addEventListener("input", redrawPhoto);
+function redrawPhoto(){
+  if (mode !== "photo" || !photoBitmap || !photoLandmarks) return;
+  ctx.drawImage(photoBitmap, 0, 0, canvas.width, canvas.height);
+  smooth = null;
+  drawOverlay(wristPose(photoLandmarks, canvas.width, canvas.height), canvas.width, canvas.height);
+}
+
+// ---------- snapshot ----------
+snapBtn.addEventListener("click", () => {
+  // paint status-free composite
+  const out = document.createElement("canvas");
+  out.width = canvas.width; out.height = canvas.height;
+  out.getContext("2d").drawImage(canvas, 0, 0);
+  const a = document.createElement("a");
+  a.download = "watch-et-tryon-" + currentColor + ".png";
+  a.href = out.toDataURL("image/png");
+  a.click();
+});
+
+function stopAll(){
+  mode = "idle";
+  if (rafId) cancelAnimationFrame(rafId);
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; smooth = null; lastVideoTime = -1;
+  photoBitmap = null; photoLandmarks = null;
+  startBtn.style.display = ""; startBtn.disabled = false;
+  switchBtn.style.display = "none"; snapBtn.style.display = "none";
+}
+</script>
+</body>
+</html>
