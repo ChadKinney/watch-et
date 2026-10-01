@@ -72,7 +72,7 @@
         <input type="range" id="sizeRange" min="50" max="150" value="100" aria-label="Adjust overlay size">
       </div>
 
-      <p class="tryon-note">Tip: hold your wrist steady about a foot from the camera, palm facing the camera.<br>Drag the sleeve to reposition it · move the size slider until the fit looks right.<br>No photo ever leaves your phone. Everything runs right in your browser.</p>
+      <p class="tryon-note">Tip: hold your wrist steady about a foot from the camera, top of your wrist facing the camera.<br>Drag the sleeve to reposition it · move the size slider until the fit looks right.<br>No photo ever leaves your phone. Everything runs right in your browser.</p>
 
       <div style="text-align:center;margin-top:26px;">
         <a href="index.html#order" class="btn btn-primary">Like it? Order Yours from $23</a>
@@ -343,7 +343,7 @@ async function startCamera(){
         setStatus(COLORS[currentColor].name + ". Looking good. Tap a color to compare.");
       } else {
         smooth = null;
-        setStatus("Show your wrist to the camera, palm facing it.");
+        setStatus("Show the top of your wrist to the camera.");
       }
     } else if (!landmarker && trackingFailed){
       // manual mode: tracking blocked, sleeve follows the user's drag
