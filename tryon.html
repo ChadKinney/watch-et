@@ -248,23 +248,49 @@ function drawFrameMirrored(drawVideo){
 // ---------- camera mode ----------
 async function startCamera(){
   stopAll();
-  setStatus("Loading hand tracking… (first run downloads a small AI model)");
   startBtn.disabled = true;
+  // in app browsers (Facebook, Messenger, etc) block the camera on iPhone
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    startBtn.disabled = false;
+    setStatus("This browser is blocking the camera. Open this page in Safari directly instead of inside Facebook or another app, then tap Start Camera.");
+    return;
+  }
+  // ask for the camera FIRST so the feed comes up even if the hand tracking model is slow
   try {
-    if (!landmarker) landmarker = await ensureLandmarker("VIDEO");
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
       audio: false
     });
   } catch(err){
-    startBtn.disabled = false;
-    setStatus("Camera unavailable. Try “Use a Photo Instead” below.");
-    return;
+    const name = err && err.name;
+    if (name === "NotFoundError" || name === "OverconstrainedError") {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      } catch(err2){
+        startBtn.disabled = false;
+        setStatus("No camera found on this device. Use a photo instead.");
+        return;
+      }
+    } else if (name === "NotAllowedError" || name === "SecurityError") {
+      startBtn.disabled = false;
+      setStatus("Camera permission was blocked. On iPhone go to Settings, find Safari, set Camera to Allow, then come back and tap Start Camera. You can also use a photo instead.");
+      return;
+    } else {
+      startBtn.disabled = false;
+      setStatus("Camera unavailable. Try Use a Photo Instead below.");
+      return;
+    }
   }
   const video = document.createElement("video");
   video.playsInline = true; video.muted = true;
   video.srcObject = stream;
-  await video.play();
+  try { await video.play(); } catch(err){}
+  if (!video.videoWidth) {
+    stopAll();
+    startBtn.disabled = false;
+    setStatus("The camera did not start. Try Use a Photo Instead below.");
+    return;
+  }
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   mode = "camera";
@@ -272,12 +298,12 @@ async function startCamera(){
   switchBtn.style.display = "";
   snapBtn.style.display = "";
   startBtn.style.display = "none";
-  setStatus("Hold your wrist up to the camera, palm facing it.");
 
+  // show the live feed right away, load the hand tracker in the background
   const loop = () => {
     if (mode !== "camera") return;
     drawFrameMirrored((W, H) => ctx.drawImage(video, 0, 0, W, H));
-    if (video.currentTime !== lastVideoTime){
+    if (landmarker && video.currentTime !== lastVideoTime){
       lastVideoTime = video.currentTime;
       const res = landmarker.detectForVideo(video, performance.now());
       const lm = res.landmarks && res.landmarks[0];
@@ -294,7 +320,14 @@ async function startCamera(){
     }
     rafId = requestAnimationFrame(loop);
   };
+  setStatus("Camera is on. Loading hand tracking…");
   loop();
+  try {
+    if (!landmarker) landmarker = await ensureLandmarker("VIDEO");
+  } catch(err){
+    if (mode === "camera")
+      setStatus("Camera is on but hand tracking could not load. The photo option below still works.");
+  }
 }
 
 startBtn.addEventListener("click", startCamera);
