@@ -1,0 +1,5 @@
+# Local Netlify folder
+.netlify
+# Local working files - not for the live site
+hidden_files/
+images/fb-ads/
